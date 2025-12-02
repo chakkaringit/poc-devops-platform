@@ -1,0 +1,105 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'INPUT_CLUSTER_NAME', defaultValue: 'My-Jenkins-Cluster', description: 'ตั้งชื่อ EKS Cluster ของคุณ (ภาษาอังกฤษเท่านั้น)')
+        choice(name: 'INPUT_INSTANCE_TYPE', choices: ['t3.medium', 't3.large', 'm5.large'], description: 'เลือกขนาด EC2 สำหรับ Worker Node')
+        choice(name: 'ACTION', choices: ['Deploy', 'Destroy'], description: 'เลือกสิ่งที่จะทำ: สร้าง (Deploy) หรือ ลบ (Destroy)')
+    }
+
+    environment {
+        AWS_REGION = 'ap-southeast-1'
+        TEMPLATE_FILE = 'eks-full-stack.yaml'
+        
+        STACK_NAME = "EKS-${params.INPUT_CLUSTER_NAME}-Stack" 
+        
+        AWS_CRED_ID = 'maas-aws-key-dev'
+    }
+
+    stages {
+        // Stage 1: Git Checkout
+        steps {
+            git branch: 'main',
+                credentialsId: 'bitbucket-login', // ใส่ ID ที่ตั้งไว้ใน Jenkins
+                url: 'https://chakkarins@bitbucket.org/knowesis/poc-devops-platform.git'
+        }
+
+        // Stage 2: Verify YAML
+        stage('Validate Template') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    script {
+                        echo "Validating CloudFormation Template..."
+                        sh "aws cloudformation validate-template --template-body file://${TEMPLATE_FILE} --region ${AWS_REGION}"
+                    }
+                }
+            }
+        }
+
+        // Stage 3: Deploy
+        stage('Deploy Infrastructure') {
+            when {
+                expression { params.ACTION == 'Deploy' }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    script {
+                        echo "============================================="
+                        echo "Deploying Stack: ${STACK_NAME}"
+                        echo "Cluster Name: ${params.INPUT_CLUSTER_NAME}"
+                        echo "Instance Type: ${params.INPUT_INSTANCE_TYPE}"
+                        echo "============================================="
+                        
+                        // คำสั่ง Deploy:
+                        // --parameter-overrides ใช้ส่งค่าจาก Jenkins เข้าไปใน YAML
+                        // --capabilities CAPABILITY_NAMED_IAM จำเป็นต้องใส่เพราะเราสร้าง IAM Role
+                        sh """
+                            aws cloudformation deploy \
+                            --template-file ${TEMPLATE_FILE} \
+                            --stack-name ${STACK_NAME} \
+                            --region ${AWS_REGION} \
+                            --capabilities CAPABILITY_NAMED_IAM \
+                            --parameter-overrides \
+                                ClusterName=${params.INPUT_CLUSTER_NAME} \
+                                NodeInstanceType=${params.INPUT_INSTANCE_TYPE}
+                        """
+                        
+                        echo "Deployment Completed Successfully!"
+                    }
+                }
+            }
+        }
+
+        // Stage 4: Destroy
+        stage('Destroy Infrastructure') {
+            when {
+                expression { params.ACTION == 'Destroy' }
+            }
+            steps {
+                script {
+                    // 4.1 ขอคนกดยืนยันก่อนลบ (Safety Check)
+                    input message: "อันตราย! คุณแน่ใจหรือไม่ที่จะลบ Stack: ${STACK_NAME} ?", ok: "ยืนยันการลบ"
+                    
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        echo "Deleting Stack: ${STACK_NAME}..."
+                        
+                        // 4.2 สั่งลบ
+                        sh "aws cloudformation delete-stack --stack-name ${STACK_NAME} --region ${AWS_REGION}"
+                        
+                        echo "Waiting for deletion to complete..."
+                        // 4.3 รอจนกว่าจะลบเสร็จ (ไม่งั้น Jenkins จะจบงานก่อน)
+                        sh "aws cloudformation wait stack-delete-complete --stack-name ${STACK_NAME} --region ${AWS_REGION}"
+                        
+                        echo "Stack Deleted Successfully."
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        failure {
+            echo "Pipeline Failed. Please check the logs."
+        }
+    }
+}
