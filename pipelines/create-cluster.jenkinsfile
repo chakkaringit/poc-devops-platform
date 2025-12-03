@@ -9,7 +9,7 @@ pipeline {
 
     environment {
         AWS_REGION = 'ap-southeast-1'
-        TEMPLATE_FILE = 'eks-full-stack.yaml'
+        TEMPLATE_FILE = 'provisioning/eks-full-stack.yaml'
         
         STACK_NAME = "EKS-${params.INPUT_CLUSTER_NAME}-Stack" 
         

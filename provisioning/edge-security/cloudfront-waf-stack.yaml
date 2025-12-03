@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Edge Security Stack: CloudFront + WAFv2 + Custom Domain (Must deploy to us-east-1)'
+
+Parameters:
+  NlbDomainName:
+    Type: String
+    Description: "The DNS Name of your Kubernetes NLB (e.g., xxx.elb.amazonaws.com)"
+  
+  WildcardDomain:
+    Type: String
+    Description: "Your Wildcard Domain Alias (e.g., *.example.com)"
+  
+  AcmCertificateArn:
+    Type: String
+    Description: "ARN of the ACM Certificate (Must be created in us-east-1 region!)"
+
+Resources:
+  # ============================================================
+  # 1. AWS WAF v2 (Web ACL)
+  # ============================================================
+  MyWebACL:
+    Type: AWS::WAFv2::WebACL
+    Properties:
+      Name: !Sub "WAF-${WildcardDomain}"
+      Scope: CLOUDFRONT
+      DefaultAction:
+        Allow: {}
+      VisibilityConfig:
+        SampledRequestsEnabled: true
+        CloudWatchMetricsEnabled: true
+        MetricName: FrontendWafMetric
+      Rules:
+        # Rule 1: Common Threats (OWASP Top 10 like SQLi, XSS)
+        - Name: AWS-AWSManagedRulesCommonRuleSet
+          Priority: 0
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesCommonRuleSet
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSCommonRules
+
+        # Rule 2: IP Reputation (Block known bad IPs/Bots)
+        - Name: AWS-AWSManagedRulesAmazonIpReputationList
+          Priority: 1
+          Statement:
+            ManagedRuleGroupStatement:
+              VendorName: AWS
+              Name: AWSManagedRulesAmazonIpReputationList
+          OverrideAction:
+            None: {}
+          VisibilityConfig:
+            SampledRequestsEnabled: true
+            CloudWatchMetricsEnabled: true
+            MetricName: AWSBadIPs
+
+  # ============================================================
+  # 2. CloudFront Distribution
+  # ============================================================
+  MyCloudFront:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "CDN Proxy for ${WildcardDomain}"
+        WebACLId: !GetAtt MyWebACL.Arn # ผูก WAF เข้ากับ CloudFront
+        
+        # รองรับ Wildcard Domain (เช่น *.example.com)
+        Aliases:
+          - !Ref WildcardDomain
+        
+        # ตั้งค่า SSL Certificate
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+        
+        # ตั้งค่า Origin (ชี้ไปที่ Kubernetes NLB)
+        Origins:
+          - Id: MyNLBOrigin
+            DomainName: !Ref NlbDomainName
+            CustomOriginConfig:
+              # ให้ CloudFront คุยกับ NLB ผ่าน HTTP Port 80
+              # (เพราะเราถอด SSL ที่ CloudFront แล้ว เพื่อลดภาระ Backend)
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+              OriginSSLProtocols: 
+                - TLSv1.2
+        
+        # ตั้งค่า Cache Behavior (โหมด Proxy ส่งทุกอย่างไป Backend)
+        DefaultCacheBehavior:
+          TargetOriginId: MyNLBOrigin
+          ViewerProtocolPolicy: redirect-to-https # บังคับลูกค้าใช้ HTTPS เสมอ
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+          CachedMethods: [GET, HEAD, OPTIONS]
+          Compress: true # เปิด Gzip/Brotli อัตโนมัติ
+          
+          # สำคัญ: Forward ทุกอย่างไปให้ NGINX Ingress ตัดสินใจต่อ
+          ForwardedValues:
+            QueryString: true
+            Cookies:
+              Forward: all
+            Headers:
+              - "*" # Forward Host Header ไปด้วย เพื่อให้ Ingress รู้ว่าลูกค้าเข้าเว็บชื่ออะไร
+
+Outputs:
+  CloudFrontDomainName:
+    Description: "CloudFront Domain Name (Use this value in GoDaddy CNAME)"
+    Value: !GetAtt MyCloudFront.DomainName
+  
+  DistributionId:
+    Description: "CloudFront Distribution ID"
+    Value: !Ref MyCloudFront
