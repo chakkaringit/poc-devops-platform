@@ -66,7 +66,7 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ClusterName}-Public-1"
-        - Key: "kubernetes.io/cluster/${ClusterName}"
+        - Key: !Sub "kubernetes.io/cluster/${ClusterName}"
           Value: "shared"
         - Key: "kubernetes.io/role/elb" # Tag สำหรับ Public LB
           Value: "1"
@@ -82,7 +82,7 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ClusterName}-Public-2"
-        - Key: "kubernetes.io/cluster/${ClusterName}"
+        - Key: !Sub "kubernetes.io/cluster/${ClusterName}"
           Value: "shared"
         - Key: "kubernetes.io/role/elb"
           Value: "1"
@@ -145,7 +145,7 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ClusterName}-Private-1"
-        - Key: "kubernetes.io/cluster/${ClusterName}"
+        - Key: !Sub "kubernetes.io/cluster/${ClusterName}"
           Value: "shared"
         - Key: "kubernetes.io/role/internal-elb" # Tag สำหรับ Internal LB
           Value: "1"
@@ -161,7 +161,7 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ClusterName}-Private-2"
-        - Key: "kubernetes.io/cluster/${ClusterName}"
+        - Key: !Sub "kubernetes.io/cluster/${ClusterName}"
           Value: "shared"
         - Key: "kubernetes.io/role/internal-elb"
           Value: "1"
