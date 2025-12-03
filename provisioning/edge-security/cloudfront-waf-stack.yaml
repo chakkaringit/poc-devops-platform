@@ -21,7 +21,7 @@ Resources:
   MyWebACL:
     Type: AWS::WAFv2::WebACL
     Properties:
-      Name: !Sub "WAF-${WildcardDomain}"
+      Name: !Sub "WAF-${AWS::StackName}"
       Scope: CLOUDFRONT
       DefaultAction:
         Allow: {}
