@@ -263,3 +263,60 @@ Outputs:
   CommandToConnect:
     Description: "Run this to configure kubectl"
     Value: !Sub "aws eks update-kubeconfig --name ${ClusterName} --region ${AWS::Region}"
+
+# ============================================================
+  # 8. EFS FILE SYSTEM (Network Storage) [NEW]
+  # ============================================================
+  # 1. Security Group for EFS
+  EFSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow EKS Nodes to mount EFS"
+      VpcId: !Ref EksVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 2049
+          ToPort: 2049
+          CidrIp: 10.0.0.0/16 # อนุญาตทั้ง VPC
+
+  # 2. File System
+  EFSFileSystem:
+    Type: AWS::EFS::FileSystem
+    Properties:
+      Encrypted: true
+      PerformanceMode: generalPurpose
+      ThroughputMode: bursting
+      FileSystemTags:
+        - Key: Name
+          Value: !Sub "${ClusterName}-EFS"
+
+  # 3. Mount Targets (เชื่อมกับ Private Subnet ที่ Node อยู่)
+  EFSMountTarget1:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref EFSFileSystem
+      SubnetId: !Ref PrivateSubnet1
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
+
+  EFSMountTarget2:
+    Type: AWS::EFS::MountTarget
+    Properties:
+      FileSystemId: !Ref EFSFileSystem
+      SubnetId: !Ref PrivateSubnet2
+      SecurityGroups:
+        - !Ref EFSSecurityGroup
+
+Outputs:
+  ClusterName:
+    Description: "The name of the EKS Cluster"
+    Value: !Ref EKSCluster
+  ClusterEndpoint:
+    Description: "The endpoint for your EKS Kubernetes API."
+    Value: !GetAtt EKSCluster.Endpoint
+  CommandToConnect:
+    Description: "Run this to configure kubectl"
+    Value: !Sub "aws eks update-kubeconfig --name ${ClusterName} --region ${AWS::Region}"
+  EFSFileSystemId:
+    Description: "ID of the EFS File System (Use this in StorageClass)"
+    Value: !Ref EFSFileSystem
