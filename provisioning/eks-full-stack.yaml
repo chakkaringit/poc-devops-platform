@@ -266,18 +266,7 @@ Resources:
         - !Ref NodeInstanceType
       AmiType: AL2_x86_64
 
-Outputs:
-  ClusterName:
-    Description: "The name of the EKS Cluster"
-    Value: !Ref EKSCluster
-  ClusterEndpoint:
-    Description: "The endpoint for your EKS Kubernetes API."
-    Value: !GetAtt EKSCluster.Endpoint
-  CommandToConnect:
-    Description: "Run this to configure kubectl"
-    Value: !Sub "aws eks update-kubeconfig --name ${ClusterName} --region ${AWS::Region}"
-
-# ============================================================
+  # ============================================================
   # 8. EFS FILE SYSTEM (Network Storage) [NEW]
   # ============================================================
   # 1. Security Group for EFS
@@ -330,6 +319,3 @@ Outputs:
   CommandToConnect:
     Description: "Run this to configure kubectl"
     Value: !Sub "aws eks update-kubeconfig --name ${ClusterName} --region ${AWS::Region}"
-  EFSFileSystemId:
-    Description: "ID of the EFS File System (Use this in StorageClass)"
-    Value: !Ref EFSFileSystem
