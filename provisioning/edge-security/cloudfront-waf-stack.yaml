@@ -91,6 +91,8 @@ Resources:
               OriginProtocolPolicy: http-only
               OriginSSLProtocols: 
                 - TLSv1.2
+              OriginReadTimeout: 300
+              OriginKeepaliveTimeout: 300
         
         # ตั้งค่า Cache Behavior (โหมด Proxy ส่งทุกอย่างไป Backend)
         DefaultCacheBehavior:
