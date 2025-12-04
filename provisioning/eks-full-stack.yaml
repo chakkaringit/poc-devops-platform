@@ -319,3 +319,6 @@ Outputs:
   CommandToConnect:
     Description: "Run this to configure kubectl"
     Value: !Sub "aws eks update-kubeconfig --name ${ClusterName} --region ${AWS::Region}"
+  EFSFileSystemId:
+    Description: "ID of the EFS File System (Use this in StorageClass)"
+    Value: !Ref EFSFileSystem
