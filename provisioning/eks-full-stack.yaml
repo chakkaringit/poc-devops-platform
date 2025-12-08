@@ -10,7 +10,7 @@ Parameters:
   NodeInstanceType:
     Type: String
     Default: "t3.medium" # ปรับเป็น m5.large หรือตามต้องการสำหรับ Prod
-    AllowedValues: ["t3.medium", "t3.large", "m5.large", "m5.xlarge", "m6a.2xlarge"]
+    AllowedValues: ["t3.medium", "t3.large", "t4g.xlarge", "m5.large", "m5.xlarge", "m6a.2xlarge"]
     Description: "EC2 Instance type for worker nodes"
 
 Resources:
