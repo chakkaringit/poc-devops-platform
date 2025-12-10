@@ -93,6 +93,9 @@ Resources:
                 - TLSv1.2
               OriginReadTimeout: 60
               OriginKeepaliveTimeout: 60
+            OriginCustomHeaders:
+              - HeaderName: "X-Forwarded-Proto"
+                HeaderValue: "https"
         
         # ตั้งค่า Cache Behavior (โหมด Proxy ส่งทุกอย่างไป Backend)
         DefaultCacheBehavior:
