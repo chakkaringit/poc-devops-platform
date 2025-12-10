@@ -265,8 +265,8 @@ Resources:
         DesiredSize: 2
       InstanceTypes:
         - !Ref NodeInstanceType
-      #AmiType: AL2_x86_64
-      AmiType: AL2_ARM_64
+      AmiType: AL2_x86_64
+      #AmiType: AL2_ARM_64
 
   # ============================================================
   # 8. EFS FILE SYSTEM (Network Storage) [NEW]
