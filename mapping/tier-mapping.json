@@ -1,0 +1,17 @@
+{
+  "Starter": {
+    "Under 100k": "t3.medium",
+    "100k to 1M": "t3.large",
+    "Default": "t3.medium"
+  },
+  "Professional": {
+    "Under 100k": "m5.large",
+    "100k to 1M": "m5.xlarge",
+    "Default": "m5.large"
+  },
+  "Enterprise": {
+    "Under 100k": "m5.xlarge",
+    "100k to 1M": "c5.2xlarge",
+    "Default": "m5.xlarge"
+  }
+}
