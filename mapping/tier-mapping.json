@@ -1,11 +1,11 @@
 {
-  "Starter": {
-    "Default": "t3.medium"
-  },
-  "Professional": {
+  "starter": {
     "Default": "m5.xlarge"
   },
-  "Enterprise": {
+  "basic": {
+    "Default": "m5.xlarge"
+  },
+  "power": {
     "Default": "m5.xlarge"
   }
 }
