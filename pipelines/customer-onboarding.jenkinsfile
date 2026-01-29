@@ -1,0 +1,227 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'CUSTOMER_ID', defaultValue: '', description: 'Unique identifier for the customer (e.g., knowesis).')
+        //choice(name: 'SUBSCRIPTION_TIER', choices: ['starter', 'basic', 'power'], description: 'Service Level Agreement')
+        choice(
+            name: 'SUBSCRIPTION_TIER',
+            choices: ['starter', 'basic', 'power'],
+            description: '''
+            <div style="background-color: #f0f8ff; padding: 10px; border-radius: 5px; border: 1px solid #add8e6; margin-top: 5px;">
+              <strong>ℹ️ Tier Specification Guide:</strong>
+              <table style="width: 100%; margin-top: 5px; border-collapse: collapse;">
+                <tr style="border-bottom: 1px solid #ddd;">
+                  <th style="text-align: left; padding: 5px;">Tier</th>
+                  <th style="text-align: left; padding: 5px;">Instance Type</th>
+                  <th style="text-align: left; padding: 5px;">No of Instance</th>
+                </tr>
+                <tr>
+                  <td style="padding: 5px;"><b>Starter Pack</b></td>
+                  <td style="padding: 5px;">m5.xlarge (4 vCPU, 16GB)</td>
+                  <td style="padding: 5px;">3</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px;"><b>Basic Pack</b></td>
+                  <td style="padding: 5px;">m5.xlarge (4 vCPU, 16GB)</td>
+                  <td style="padding: 5px;">3</td>
+                </tr>
+                <tr>
+                 <td style="padding: 5px;"><b>Power Pack</b></td>
+                  <td style="padding: 5px;">m5.xlarge (4 vCPU, 16GB)</td>
+                  <td style="padding: 5px;">4</td>
+                </tr>
+              </table>
+            </div>
+            Choose the service level agreement.
+            '''
+        )
+        choice(name: 'AWS_REGION', choices: ['ap-southeast-1', 'us-east-1'], description: 'Target Region')
+        choice(name: 'ENVIRONMENT', choices: ['Production', 'Staging', 'Sandbox'], description: 'Target Environment')
+        //string(name: 'WILDCARD_DOMAIN', defaultValue: '*.example.com', description: 'Domain for Ingress')
+        //string(name: 'CERT_ARN', defaultValue: '', description: 'ACM Certificate ARN (Optional)')
+    }
+
+    environment {
+        // ชื่อ Job ปลายทาง (ต้องตรงกับชื่อจริงใน Jenkins)
+        INFRA_JOB_NAME = 'Infrastructure-Prod'
+        ARGOCD_JOB_NAME = 'ArgoCD-Prod'
+        CERT_ARN = 'arn:aws:acm:us-east-1:288761762907:certificate/2a45d034-9469-46cc-9edb-0b5cbb02c1ca'
+        DOMAIN = 'quiinsfelicity.shop'
+        //WILDCARD_DOMAIN = '*.prod.quiinsfelicity.shop'
+        
+        // Config สำหรับดึงไฟล์ Mapping
+        GIT_CRED_ID = 'github-login' 
+        CONFIG_REPO_URL = 'https://github.com/chakkaringit/poc-devops-platform.git' // Repo ที่เก็บไฟล์ json
+        MAPPING_FILE_NAME = 'mapping/tier-mapping.json'
+        
+        APP_REPO_URL = "https://github.com/chakkaringit/poc-cicd-apps.git"
+        TARGET_ENV_CODE = "${params.ENVIRONMENT == 'Production' ? 'prod' : (params.ENVIRONMENT == 'Staging' ? 'stg' : 'dev')}"
+        
+    }
+
+    stages {
+        stage('Fetch Config & Calculate Specs') {
+            steps {
+                script {
+                    echo "🔍 Analyzing Requirement for Customer: ${params.CUSTOMER_ID}"
+                    
+                    // ---------------------------------------------------------
+                    // 1. Checkout Git เพื่อเอาไฟล์ Mapping
+                    // ---------------------------------------------------------
+                    echo "📥 Fetching mapping configuration from Git..."
+                    
+                    // ใช้ dir() เพื่อสร้างโฟลเดอร์ชั่วคราว ไม่ให้ปนกับไฟล์อื่น
+                    dir('config-data') {
+                        git branch: 'main',
+                            url: env.CONFIG_REPO_URL,
+                            credentialsId: env.GIT_CRED_ID
+                        
+                        // ตรวจสอบว่ามีไฟล์อยู่จริงไหม
+                        if (!fileExists(env.MAPPING_FILE_NAME)) {
+                            error "❌ File '${env.MAPPING_FILE_NAME}' not found in repository!"
+                        }
+
+                        // ---------------------------------------------------------
+                        // 2. อ่านไฟล์ JSON (ต้องลง Plugin 'Pipeline Utility Steps')
+                        // ---------------------------------------------------------
+                        def mappingData = readJSON file: env.MAPPING_FILE_NAME
+                        echo "📂 Loaded Mapping Data: ${mappingData}"
+
+                        // ---------------------------------------------------------
+                        // 3. คำนวณหา Instance Type
+                        // ---------------------------------------------------------
+                        def tierData = mappingData[params.SUBSCRIPTION_TIER]
+                        if (!tierData) {
+                            error "❌ Tier '${params.SUBSCRIPTION_TIER}' is not defined in ${env.MAPPING_FILE_NAME}"
+                        }
+
+                        // เลือก Spec ตาม User Count (ถ้าไม่มีให้ใช้ค่า Default)
+                        def selectedInstanceType = tierData[params.EXPECTED_USER_COUNT] ?: tierData['Default']
+                        
+                        if (!selectedInstanceType) {
+                             error "❌ Could not determine Instance Type for User Count: ${params.EXPECTED_USER_COUNT}"
+                        }
+
+                        // set ค่าเข้า Environment Variable เพื่อส่งต่อไป Stage อื่น
+                        env.TARGET_INSTANCE_TYPE = selectedInstanceType
+                    } // ปิด dir('config-data')
+
+                    // ---------------------------------------------------------
+                    // 4. สร้างชื่อ Cluster
+                    // ---------------------------------------------------------
+                    def cleanCustomerId = params.CUSTOMER_ID.toLowerCase().replaceAll("[^a-z0-9]", "-")
+                    env.TARGET_CLUSTER_NAME = "${cleanCustomerId}-${params.ENVIRONMENT.toLowerCase()}-cluster"
+                    
+                    env.WILDCARD_DOMAIN =  "*." + env.TARGET_ENV_CODE + "." + env.DOMAIN
+                    env.SUB_DOMAIN = cleanCustomerId + "." + env.TARGET_ENV_CODE + "." + env.DOMAIN
+
+                    echo "============================================="
+                    echo "🎯 Plan Summary"
+                    echo "   - Cluster Name: ${env.TARGET_CLUSTER_NAME}"
+                    echo "   - Tier: ${params.SUBSCRIPTION_TIER}"
+                    echo "   - Selected Node: ${env.TARGET_INSTANCE_TYPE} (From Git Mapping)"
+                    echo "   - Wildcard Domain Name: ${env.WILDCARD_DOMAIN}"
+                    echo "   - ARN of ACM Certificate: ${env.CERT_ARN}"
+                    echo "============================================="
+                }
+            }
+        }
+
+        stage('Trigger: Infrastructure Provisioning') {
+            steps {
+                script {
+                    echo "🚀 Triggering Infrastructure Pipeline..."
+                    
+                    build job: env.INFRA_JOB_NAME, parameters: [
+                        string(name: 'INPUT_CLUSTER_NAME', value: env.TARGET_CLUSTER_NAME),
+                        string(name: 'INPUT_INSTANCE_TYPE', value: env.TARGET_INSTANCE_TYPE),
+                        string(name: 'ACTION', value: 'Deploy'),
+                        string(name: 'INPUT_WILDCARD_DOMAIN', value: env.WILDCARD_DOMAIN),
+                        string(name: 'INPUT_SUB_DOMAIN', value: env.SUB_DOMAIN),
+                        string(name: 'INPUT_CERT_ARN', value: env.CERT_ARN)
+                    ], wait: true, propagate: true
+                }
+            }
+        }
+
+        stage('Trigger: ArgoCD Deployment') {
+            steps {
+                script {
+                    echo "⚓ Triggering ArgoCD Pipeline..."
+                    
+                    // ส่ง Repository URL ที่เรามีอยู่แล้วไปให้ ArgoCD ใช้ต่อได้เลย
+                    build job: env.ARGOCD_JOB_NAME, parameters: [
+                        string(name: 'INPUT_CLUSTER_NAME', value: env.TARGET_CLUSTER_NAME),
+                        string(name: 'GIT_REPO_URL', value: env.APP_REPO_URL),
+                        string(name: 'SUBSCRIPTION_TIER', value: params.SUBSCRIPTION_TIER),
+                        string(name: 'WILDCARD_DOMAIN', value: env.SUB_DOMAIN)
+                    ], wait: true, propagate: true
+                    
+                    echo "✅ Applications Deployed via ArgoCD Successfully!"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            script {
+                // จัดเตรียมตัวแปรให้อ่านง่าย
+                def border = "========================================================================"
+                def line   = "------------------------------------------------------------------------"
+                
+                echo """
+                ${border}
+                   🚀  CUSTOMER ONBOARDING COMPLETED SUCCESSFULLY
+                ${border}
+                
+                  👤  CLIENT PROFILE
+                  ${line}
+                    • Customer ID       : ${params.CUSTOMER_ID}
+                    • Subscription Tier : ${params.SUBSCRIPTION_TIER}
+                    • Environment       : ${env.TARGET_ENV_CODE.toUpperCase()}
+                    • Region            : ${params.AWS_REGION}
+                
+                  🌐  SERVICE ACCESS POINTS
+                  ${line}
+                    • 🐙 ArgoCD         : https://argocd-${env.SUB_DOMAIN}
+                    • 💾 Couchbase      : https://persist-${env.SUB_DOMAIN}
+                    • 📊 Kibana         : https://kibana-${env.SUB_DOMAIN}
+                    • 🔐 Keycloak       : https://keycloak-${env.SUB_DOMAIN}
+                    • 🐙 Portal         : https://admin-${env.SUB_DOMAIN}
+                
+                  📝  NEXT ACTIONS
+                  ${line}
+                    1. Maping domain and DNS record.
+                    2. Check ArgoCD for application sync status (Healthy/Synced).
+                    3. Retrieve initial admin credentials from Vault/Secrets Manager.
+                
+                ${border}
+                """
+            }
+        }
+        
+        failure {
+            script {
+                def border = "========================================================================"
+                echo """
+                ${border}
+                   ❌  ONBOARDING FAILED
+                ${border}
+                
+                  ⚠️  TROUBLESHOOTING GUIDE
+                  ------------------------------------------------------------------------
+                    1. Check the 'Console Output' for error messages (Red text).
+                    2. Verify CloudFormation/Terraform state.
+                    3. Check Kubernetes Events: 'kubectl get events -n opolo --sort-by=.metadata.creationTimestamp'
+                    
+                  🆔  Customer ID : ${params.CUSTOMER_ID}
+                  🌍  Environment : ${env.TARGET_ENV_CODE}
+                
+                ${border}
+                """
+            }
+        }
+    }
+}
