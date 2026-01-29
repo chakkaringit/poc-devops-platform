@@ -120,7 +120,7 @@ spec:
   rules:
   # ตั้งชื่อโดเมนย่อยสำหรับ ArgoCD (เช่น argocd.poc.quiinsfelicity.shop)
   # สังเกตการใช้ตัวแปร \${INPUT_WILDCARD_DOMAIN} และตัด * ออก
-  - host: argocd-${params.INPUT_SUB_DOMAIN.replace('*.', '')}
+  - host: argocd${params.INPUT_SUB_DOMAIN.replace('*.', '')}
     http:
       paths:
       - path: /

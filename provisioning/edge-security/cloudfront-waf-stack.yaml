@@ -7,8 +7,8 @@ Parameters:
     Description: "The DNS Name of your Kubernetes NLB (e.g., xxx.elb.amazonaws.com)"
   
   WildcardDomain:
-    Type: String
-    Description: "Your Wildcard Domain Alias (e.g., *.example.com)"
+    Type: CommaDelimitedList 
+    Description: "List of Domains separated by comma (e.g. admin.example.com,portal.example.com)"
   
   AcmCertificateArn:
     Type: String
@@ -66,12 +66,16 @@ Resources:
     Properties:
       DistributionConfig:
         Enabled: true
-        Comment: !Sub "CDN Proxy for ${WildcardDomain}"
-        WebACLId: !GetAtt MyWebACL.Arn # ผูก WAF เข้ากับ CloudFront
+        #Comment: !Sub "CDN Proxy for ${WildcardDomain}"
+        #WebACLId: !GetAtt MyWebACL.Arn # ผูก WAF เข้ากับ CloudFront
         
         # รองรับ Wildcard Domain (เช่น *.example.com)
-        Aliases:
-          - !Ref WildcardDomain
+        #Aliases:
+        #  - !Ref WildcardDomain
+        
+        Comment: !Join [", ", !Ref WildcardDomain] 
+        WebACLId: !GetAtt MyWebACL.Arn
+        Aliases: !Ref WildcardDomain
         
         # ตั้งค่า SSL Certificate
         ViewerCertificate:
