@@ -72,8 +72,8 @@ Resources:
         # รองรับ Wildcard Domain (เช่น *.example.com)
         #Aliases:
         #  - !Ref WildcardDomain
-        
-        Comment: !Join [", ", !Ref WildcardDomain] 
+
+        Comment: !Sub "CDN for ${AWS::StackName}"
         WebACLId: !GetAtt MyWebACL.Arn
         Aliases: !Ref WildcardDomain
         
