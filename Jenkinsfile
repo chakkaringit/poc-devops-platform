@@ -107,7 +107,7 @@ pipeline {
                                 // เราใช้ cat <<EOF เพื่อเขียนไฟล์ YAML สดๆ ลงไปเลย
                                 errorDesc = " : Create ArgoCD ingress exception !"
                                 sh """
-cat <<EOF | kubectl apply -f -
+cat <<EOF | kubectl apply -f - > ${logFile} 2>&1
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -144,7 +144,8 @@ spec:
                     
                     } catch (Exception e){
                         currentBuild.result = 'FAILURE'
-                        currentBuild.description = "Error: ${e.message}"
+                        def errorMsg = readFile(logFile).trim()
+                        currentBuild.description = "Error: ${errorMsg}"
                         throw e
                     }
                 }  
