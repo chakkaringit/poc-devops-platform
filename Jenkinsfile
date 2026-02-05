@@ -88,7 +88,7 @@ pipeline {
                     // 1. ระบุตำแหน่งไฟล์ CloudFormation (Template ที่คุณใช้ Deploy)
                     // ถ้าไฟล์อยู่ใน Git ให้ใส่ path เช่น 'provisioning/eks-stack.yaml'
                     // แต่ถ้าต้องการโหลดตัวที่ Deploy จริงจาก AWS ให้เปิด comment บรรทัด aws cloudformation get-template ด้านล่าง
-                    def templateFile = "${STACK_NAME}-Stack.yaml"
+                    def templateFile = "${STACK_NAME}.yaml"
                     
                     // (Optional) โหลด Template จริงจาก AWS มาก่อน เพื่อความแม่นยำ 100%
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -100,7 +100,7 @@ pipeline {
                         echo "🎨 Generating Diagram from ${templateFile}..."
                         sh """
                             npm install @mhlabs/cfn-diagram
-                            ./node_modules/.bin/cfn-diagram -t ${templateFile} -o architecture.html
+                            ./node_modules/.bin/cfn-diagram html -t ${templateFile} -o architecture.html
                         """
                 
                         archiveArtifacts artifacts: '*.html, *.png', fingerprint: true, allowEmptyArchive: true           
