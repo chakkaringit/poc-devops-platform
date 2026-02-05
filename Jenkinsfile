@@ -102,8 +102,6 @@ pipeline {
                             # 1. ลองสร้าง HTML
                             ./node_modules/.bin/cfn-diagram html -t ${templateFile} -o ${outputDir}"
                             
-                            # Debug: ดูซิว่าไฟล์ไหนออกมาบ้าง
-                            ls -lh architecture.* || echo "❌ No architecture files found"
                         """
                     } catch (Exception e) {
                         echo "⚠️ Error running cfn-diagram: ${e.message}"
@@ -175,7 +173,7 @@ spec:
             name: argocd-server
             port:
               number: 443
-        EOF
+EOF
 """
 
                                 echo "Waiting for ArgoCD..."
