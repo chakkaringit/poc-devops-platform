@@ -104,6 +104,9 @@ pipeline {
                         sh "mv ${stackName}.png architecture.png"
                     } catch (Exception e) {
                         echo "⚠️ Error running cfn-diagram: ${e.message}"
+                        currentBuild.result = 'FAILURE'
+                        currentBuild.description = "Exception Stage Generate Infra Diagram: Failed to generate any diagram file, ${e.message}"
+                        throw e
                     }
            
                     if (fileExists("architecture.png")) {
@@ -113,8 +116,7 @@ pipeline {
                     } 
                     else {
                         echo "❌ Failed to generate any diagram file."
-                         currentBuild.description = "Exception Stage Generate Infra Diagram: Failed to generate any diagram file, ${e.message}"
-                        throw e
+                        
                     }
                 }
             }
