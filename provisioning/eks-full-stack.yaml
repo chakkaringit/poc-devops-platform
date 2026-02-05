@@ -14,19 +14,7 @@ Parameters:
     Description: "EC2 Instance type for worker nodes"
 
 Resources:
-  # ============================================================
-  # 0. EFS
-  # ============================================================
-  EFSFileSystem:
-    Type: AWS::EFS::FileSystem
-    Properties:
-      Encrypted: true
-      PerformanceMode: generalPurpose
-      ThroughputMode: bursting
-      FileSystemTags:
-        - Key: Name
-          Value: !Sub "${ClusterName}-EFS"
-
+  
   # ============================================================
   # 1. VPC & INTERNET GATEWAY
   # ============================================================

@@ -91,6 +91,7 @@ pipeline {
                 script {
                     try{
                         echo "Installing ArgoCD..."
+                        def errorDesc = ""
                         def customKubeConfig = "${WORKSPACE}/.kubeconfig-temp"
                     
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
