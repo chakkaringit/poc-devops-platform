@@ -150,9 +150,10 @@ EOF
                         }
                     
                     } catch (Exception e){
-                        currentBuild.result = 'FAILURE'
-                        currentBuild.description = "Exception occur : ${errorDesc}, ${e.message}"
-                        throw e
+                        echo "Exception occurred during Install ArgoCD : ${e.message}"
+                        GLOBAL_ERROR_MESSAGE = "Exception occurred during Install ArgoCD : ${e.message}"
+                        GLOBAL_STATUS = "FAILED"
+                        error e.message
                     }
                 }  
             }
@@ -255,8 +256,8 @@ EOF
                         
                         }
                     }catch(Exception e){
-                        echo "Error Deploy CloudFront + WAF Stage ${e.message}"
-                        GLOBAL_ERROR_MESSAGE = "Error Deploy CloudFront + WAF Stage: ${e.message}"
+                        echo "Exception occurred during Deploy CloudFront + WAF Stage: ${e.message}"
+                        GLOBAL_ERROR_MESSAGE = "Exception occurred during Deploy CloudFront + WAF Stage: ${e.message}"
                         GLOBAL_STATUS = "FAILED"
                         error e.message
                     }
@@ -312,7 +313,8 @@ EOF
                             }
                         }
                     }catch(Exception e){
-                        GLOBAL_ERROR_MESSAGE = "Error in CloudFront Deploy Stage: ${e.message}"
+                        echo "Exception occurred during Install EFS Driver & StorageClass: ${e.message}"
+                        GLOBAL_ERROR_MESSAGE = "Exception occurred during Install EFS Driver & StorageClass: ${e.message}"
                         GLOBAL_STATUS = "FAILED"
                         error e.message
                     }
