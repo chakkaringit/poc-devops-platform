@@ -303,6 +303,16 @@ EOF
                         currentBuild.description = (currentBuild.description ?: "") + 
                             """<br>
                             <h3>🏗️ Infrastructure Visualizer</h3>
+                            <a href='${composerEKSUrl}' target='_blank' style='
+                                background-color: #FF9900;
+                                color: white;
+                                padding: 10px 20px;
+                                text-decoration: none;
+                                border-radius: 5px;
+                                font-weight: bold;'>
+                                Open EKS + other resources Composer ↗️
+                            </a>
+                            <br><br>
                             <a href='${composerUrl}' target='_blank' style='
                                 background-color: #FF9900;
                                 color: white;
@@ -310,14 +320,23 @@ EOF
                                 text-decoration: none;
                                 border-radius: 5px;
                                 font-weight: bold;'>
-                                Open in AWS Infrastructure Composer ↗️
+                                Open WAF + CloundFront Composer ↗️
                             </a>
-                            <br><br>
                             """
                         env.EKS_COMPOSER_LINK = composerEKSUrl
                         echo "✅ Visualizer Infrastructure: ${composerEKSUrl}"
                         env.CLOUDFRONT_COMPOSER_LINK = composerUrl
                         echo "✅ Visualizer CloudFront + WAF: ${composerUrl}"
+
+                        def outputs = [
+                            "EKS_COMPOSER_LINK": composerEKSUrl,
+                            "CLOUDFRONT_COMPOSER_LINK": composerUrl
+                        ]
+                            
+                        writeJSON file: 'outputs.json', json: outputs
+                        def jsonString = readFile('outputs.json').trim()
+                            
+                        currentBuild.description = (currentBuild.description ?: "") + "###DATA###" + jsonString
                     }
                 }
             }
