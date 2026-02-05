@@ -388,23 +388,6 @@ EOF
                 }
             }
         }
-
-        stage('Finish') {
-            steps {
-                script {
-                    
-                    def outputs = [
-                        "EKS_COMPOSER_LINK": env.EKS_COMPOSER_LINK,
-                        "CLOUDFRONT_COMPOSER_LINK": env.CLOUDFRONT_COMPOSER_LINK
-                    ]
-                    
-                    writeJSON file: 'outputs.json', json: outputs
-                    def jsonString = readFile('outputs.json').trim()
-                    
-                    currentBuild.description = (currentBuild.description ?: "") + "###DATA###" + jsonString
-                }
-            }
-        }
     } // End of stages
 
     post {
