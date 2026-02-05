@@ -101,8 +101,8 @@ pipeline {
                             withEnv(["KUBECONFIG=${customKubeConfig}"]) {
                                 // 1. Install ArgoCD (เหมือนเดิม)
                                 sh "kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -"
-                                //sh "kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side --force-conflicts"
-                                sh "kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml"
+                                sh "kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side --force-conflicts"
+                                //sh "kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml"
                                 
                                 // 2. [ใหม่] สร้าง Ingress Rule เพื่อให้เข้าผ่านเว็บได้
                                 // เราใช้ cat <<EOF เพื่อเขียนไฟล์ YAML สดๆ ลงไปเลย
