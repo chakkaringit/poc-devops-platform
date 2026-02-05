@@ -300,7 +300,7 @@ parameters:
   directoryPerms: "777"
   uid: "1000"
   gid: "1000"
-  EOF
+EOF
 """
                             }
                         }
