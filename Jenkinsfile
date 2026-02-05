@@ -113,6 +113,7 @@ pipeline {
                     } 
                     else {
                         echo "❌ Failed to generate any diagram file."
+                        throw e
                     }
                 }
             }
