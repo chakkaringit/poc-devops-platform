@@ -1,3 +1,7 @@
+def GLOBAL_EKS_LINK = "N/A"
+def GLOBAL_CLOUDFRONT_LINK = "N/A"
+def GLOBAL_CLOUDFRONT_DOMAIN = "N/A"
+
 pipeline {
     agent any
 
@@ -20,8 +24,7 @@ pipeline {
         
         // ชื่อ ID ของ Credential ใน Jenkins
         AWS_CRED_ID = 'maas-aws-key-main'
-        EKS_COMPOSER_LINK = ""
-        CLOUDFRONT_COMPOSER_LINK = ""
+
     }
 
     stages {
@@ -227,6 +230,26 @@ EOF
                         """
                         
                         echo "CloudFront Deployment Started! (Check CloudFormation Console in us-east-1)"
+                        echo "Fetching CloudFront Distribution Domain..."
+                
+                        // ระวัง: ตรง OutputKey=='CloudFrontDomainName' ต้องตรงกับชื่อในไฟล์ YAML ของคุณ
+                        def cfDomain = sh(
+                            script: """
+                                aws cloudformation describe-stacks \
+                                --stack-name Edge-Security-${params.INPUT_CLUSTER_NAME} \
+                                --region us-east-1 \
+                                --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDomainName'].OutputValue" \
+                                --output text
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        GLOBAL_CLOUDFRONT_DOMAIN = cfDomain
+
+                        echo "=========================================="
+                        echo "🌍 CloudFront Domain: ${cfDomain}"
+                        echo "=========================================="
+                    
                     }
                 }
             }
@@ -282,6 +305,9 @@ EOF
         }
 
         stage('Generate Infra Link') {
+            when {
+                expression { params.ACTION == 'Deploy' }
+            }
             steps {
                 script {                  
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -323,20 +349,12 @@ EOF
                                 Open WAF + CloundFront Composer ↗️
                             </a>
                             """
-                        env.EKS_COMPOSER_LINK = composerEKSUrl
                         echo "✅ Visualizer Infrastructure: ${composerEKSUrl}"
-                        env.CLOUDFRONT_COMPOSER_LINK = composerUrl
                         echo "✅ Visualizer CloudFront + WAF: ${composerUrl}"
 
-                        def outputs = [
-                            "EKS_COMPOSER_LINK": composerEKSUrl,
-                            "CLOUDFRONT_COMPOSER_LINK": composerUrl
-                        ]
-                            
-                        writeJSON file: 'outputs.json', json: outputs
-                        def jsonString = readFile('outputs.json').trim()
-                            
-                        currentBuild.description = (currentBuild.description ?: "") + "###DATA###" + jsonString
+                        GLOBAL_EKS_LINK = composerEKSUrl
+                        GLOBAL_CLOUDFRONT_LINK = composerUrl
+                    
                     }
                 }
             }
@@ -385,6 +403,29 @@ EOF
                         
                         echo "✅ All Systems Destroyed Successfully."
                     }
+                }
+            }
+        }
+        stage('Finish') {
+            steps {
+                script {
+                    echo "📦 Packing all outputs for Main Pipeline..."
+                    
+                    // 1. เอาตัวแปร Global ทั้งหมดมายัดใส่ Map เดียว
+                    def outputs = [
+                        "EKS_COMPOSER_LINK": GLOBAL_EKS_LINK,
+                        "CLOUDFRONT_COMPOSER_LINK": GLOBAL_CLOUDFRONT_LINK,
+                        "CLOUDFRONT_DOMAIN": GLOBAL_CLOUDFRONT_DOMAIN // <-- ส่งตัวนี้ไปด้วย
+                    ]
+                    
+                    // 2. เขียนไฟล์ JSON
+                    writeJSON file: 'outputs.json', json: outputs
+                    def jsonString = readFile('outputs.json').trim()
+                    
+                    // 3. แปะใส่ Description ทีเดียวจบ
+                    currentBuild.description = (currentBuild.description ?: "") + "###DATA###" + jsonString
+                    
+                    echo "✅ Data sent to Main Pipeline: ${jsonString}"
                 }
             }
         }
