@@ -97,23 +97,18 @@ pipeline {
                     }
                     try {
                         sh """
-                            npm install @mhlabs/cfn-diagram
-                            
-                            # 1. ลองสร้าง HTML
-                            ./node_modules/.bin/cfn-diagram html -t ${templateFile} -o ${outputDir}
-                            
+                            npm install -g cfn-dia
+                            cfn-dia ${templateFile}
                         """
+            
+                        sh "mv ${stackName}.png architecture.png"
                     } catch (Exception e) {
                         echo "⚠️ Error running cfn-diagram: ${e.message}"
                     }
-
-                    // --- ส่วน Archive & Show Description (แก้ให้ไม่อ้างอิงตัวแปร outputHtml แล้ว) ---
-                    
-                    // กรณี HTML มา
-                    if (fileExists("${outputDir}/index.html")) {
-                        archiveArtifacts artifacts: "${outputDir}/**/*", fingerprint: true     
-                        def diagramLink = "artifact/${outputDir}/index.html"      
-                        currentBuild.description = (currentBuild.description ?: "") + "<br><h3>🏗️ Infra Diagram</h3><a href='${diagramLink}' target='_blank'>View Architecture</a>"
+           
+                    if (fileExists("architecture.png")) {
+                        archiveArtifacts artifacts: 'architecture.png', fingerprint: true
+                        currentBuild.description = (currentBuild.description ?: "") + "<br><h3>🏗️ Infra Diagram</h3><img src='${env.BUILD_URL}artifact/architecture.png' width='800' />"
                         echo "✅ Diagram Generated Successfully!"
                     } 
                     else {
