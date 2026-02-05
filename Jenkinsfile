@@ -373,16 +373,16 @@ EOF
         stage('Finish') {
             steps {
                 script {
-                    def eksComposerLink = env.EKS_COMPOSER_LINK
-                    def frontComposerLink = env.CLOUDFRONT_COMPOSER_LINK
-
-                    writeFile file: 'infra_outputs.properties', text: """
-                    EKS_COMPOSER_LINK=${eksComposerLink}
-                    CLOUDFRONT_COMPOSER_LINK=${frontComposerLink}
-                    """
-                    archiveArtifacts artifacts: 'infra_outputs.properties', fingerprint: true
                     
-                    currentBuild.description = "Click Artifacts to see outputs"
+                    def outputs = [
+                        "EKS_COMPOSER_LINK": env.EKS_COMPOSER_LINK,
+                        "CLOUDFRONT_COMPOSER_LINK": env.CLOUDFRONT_COMPOSER_LINK
+                    ]
+                    
+                    writeJSON file: 'outputs.json', json: outputs
+                    def jsonString = readFile('outputs.json').trim()
+                    
+                    currentBuild.description = (currentBuild.description ?: "") + "###DATA###" + jsonString
                 }
             }
         }
