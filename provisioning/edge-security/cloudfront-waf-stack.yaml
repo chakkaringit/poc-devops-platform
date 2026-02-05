@@ -18,7 +18,7 @@ Resources:
   # ============================================================
   # 1. AWS WAF v2 (Web ACL)
   # ============================================================
-  MyWebACL:
+  WebACL:
     Type: AWS::WAFv2::WebACL
     Properties:
       Name: !Sub "WAF-${AWS::StackName}"
@@ -61,20 +61,20 @@ Resources:
   # ============================================================
   # 2. CloudFront Distribution
   # ============================================================
-  MyCloudFront:
+  CloudFront:
     Type: AWS::CloudFront::Distribution
     Properties:
       DistributionConfig:
         Enabled: true
         #Comment: !Sub "CDN Proxy for ${WildcardDomain}"
-        #WebACLId: !GetAtt MyWebACL.Arn # ผูก WAF เข้ากับ CloudFront
+        #WebACLId: !GetAtt WebACL.Arn # ผูก WAF เข้ากับ CloudFront
         
         # รองรับ Wildcard Domain (เช่น *.example.com)
         #Aliases:
         #  - !Ref WildcardDomain
 
         Comment: !Sub "CDN for ${AWS::StackName}"
-        WebACLId: !GetAtt MyWebACL.Arn
+        WebACLId: !GetAtt WebACL.Arn
         Aliases: !Ref WildcardDomain
         
         # ตั้งค่า SSL Certificate
@@ -120,8 +120,8 @@ Resources:
 Outputs:
   CloudFrontDomainName:
     Description: "CloudFront Domain Name (Use this value in GoDaddy CNAME)"
-    Value: !GetAtt MyCloudFront.DomainName
+    Value: !GetAtt CloudFront.DomainName
   
   DistributionId:
     Description: "CloudFront Distribution ID"
-    Value: !Ref MyCloudFront
+    Value: !Ref CloudFront
