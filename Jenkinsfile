@@ -81,6 +81,40 @@ pipeline {
                 }
             }
         }
+    
+        stage('Generate Infra Link') {
+            steps {
+                script {                  
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+
+                        def stackArn = sh(
+                            script: "aws cloudformation describe-stacks --stack-name ${STACK_NAME} --query 'Stacks[0].StackId' --output text --region ${AWS_REGION}",
+                            returnStdout: true
+                        ).trim()
+                        
+                        def composerUrl = "https://${AWS_REGION}.console.aws.amazon.com/composer/canvas?region=${AWS_REGION}&stackId=${stackArn}&action=view"
+                        
+                        // 3. แปะ Link ลงหน้า Build
+                        currentBuild.description = (currentBuild.description ?: "") + 
+                            """<br>
+                            <h3>🏗️ Infrastructure Visualizer</h3>
+                            <a href='${composerUrl}' target='_blank' style='
+                                background-color: #FF9900;
+                                color: white;
+                                padding: 10px 20px;
+                                text-decoration: none;
+                                border-radius: 5px;
+                                font-weight: bold;'>
+                                Open in AWS Infrastructure Composer ↗️
+                            </a>
+                            <br><br>
+                            """
+                        
+                        echo "✅ Link created: ${composerUrl}"
+                    }
+                }
+            }
+        }
 
         stage('Generate Infra Diagram') {
             steps {
@@ -105,7 +139,7 @@ pipeline {
                     } catch (Exception e) {
                         echo "⚠️ Error running cfn-diagram: ${e.message}"
                         currentBuild.result = 'FAILURE'
-                        currentBuild.description = "Exception Stage Generate Infra Diagram: Failed to generate any diagram file, ${e.message}"
+                        currentBuild.description = "Exception Stage Generate Infra Diagram: Failed to generate any diagram file"
                         throw e
                     }
            
@@ -121,6 +155,7 @@ pipeline {
                 }
             }
         }
+
         // Stage 4: Install ArgoCD
         stage('Install ArgoCD') {
             when {
