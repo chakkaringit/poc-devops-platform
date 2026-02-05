@@ -113,6 +113,7 @@ pipeline {
                     } 
                     else {
                         echo "❌ Failed to generate any diagram file."
+                         currentBuild.description = "Exception Stage Generate Infra Diagram: Failed to generate any diagram file, ${e.message}"
                         throw e
                     }
                 }
