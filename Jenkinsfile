@@ -101,9 +101,6 @@ pipeline {
                             # 1. ลองสร้าง HTML
                             ./node_modules/.bin/cfn-diagram html -t ${templateFile} -o architecture.html || echo "⚠️ HTML Generation Failed"
                             
-                            # 2. ลองสร้าง Draw.io (เผื่อ HTML ไม่ work)
-                            ./node_modules/.bin/cfn-diagram draw.io -t ${templateFile} -o architecture.drawio || echo "⚠️ DrawIO Generation Failed"
-                            
                             # Debug: ดูซิว่าไฟล์ไหนออกมาบ้าง
                             ls -lh architecture.* || echo "❌ No architecture files found"
                         """
@@ -118,11 +115,6 @@ pipeline {
                         archiveArtifacts artifacts: 'architecture.html', fingerprint: true
                         currentBuild.description = (currentBuild.description ?: "") + "<br><h3>🏗️ Infra Diagram</h3><a href='artifact/architecture.html' target='_blank'>View HTML Diagram</a>"
                         echo "✅ HTML Diagram Generated Successfully!"
-                    } 
-                    // กรณี Draw.io มา (ถ้า HTML ไม่มา)
-                    else if (fileExists('architecture.drawio')) {
-                        archiveArtifacts artifacts: 'architecture.drawio', fingerprint: true
-                        echo "✅ Draw.io Diagram Generated (HTML failed)"
                     } 
                     else {
                         echo "❌ Failed to generate any diagram file."
