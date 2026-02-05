@@ -89,6 +89,7 @@ pipeline {
                     // ถ้าไฟล์อยู่ใน Git ให้ใส่ path เช่น 'provisioning/eks-stack.yaml'
                     // แต่ถ้าต้องการโหลดตัวที่ Deploy จริงจาก AWS ให้เปิด comment บรรทัด aws cloudformation get-template ด้านล่าง
                     def templateFile = "${STACK_NAME}.yaml"
+                    def outputDir = "architecture-diagram"
                     
                     // (Optional) โหลด Template จริงจาก AWS มาก่อน เพื่อความแม่นยำ 100%
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -99,7 +100,7 @@ pipeline {
                             npm install @mhlabs/cfn-diagram
                             
                             # 1. ลองสร้าง HTML
-                            ./node_modules/.bin/cfn-diagram html -t ${templateFile} -o architecture.html || echo "⚠️ HTML Generation Failed"
+                            ./node_modules/.bin/cfn-diagram html -t ${templateFile} -o ${outputDir}"
                             
                             # Debug: ดูซิว่าไฟล์ไหนออกมาบ้าง
                             ls -lh architecture.* || echo "❌ No architecture files found"
@@ -111,10 +112,11 @@ pipeline {
                     // --- ส่วน Archive & Show Description (แก้ให้ไม่อ้างอิงตัวแปร outputHtml แล้ว) ---
                     
                     // กรณี HTML มา
-                    if (fileExists('architecture.html')) {
-                        archiveArtifacts artifacts: 'architecture.html', fingerprint: true
-                        currentBuild.description = (currentBuild.description ?: "") + "<br><h3>🏗️ Infra Diagram</h3><a href='artifact/architecture.html' target='_blank'>View HTML Diagram</a>"
-                        echo "✅ HTML Diagram Generated Successfully!"
+                    if (fileExists("${outputDir}/index.html")) {
+                        archiveArtifacts artifacts: "${outputDir}/**/*", fingerprint: true     
+                        def diagramLink = "artifact/${outputDir}/index.html"      
+                        currentBuild.description = (currentBuild.description ?: "") + "<br><h3>🏗️ Infra Diagram</h3><a href='${diagramLink}' target='_blank'>View Architecture</a>"
+                        echo "✅ Diagram Generated Successfully!"
                     } 
                     else {
                         echo "❌ Failed to generate any diagram file."
