@@ -104,37 +104,37 @@ pipeline {
                                 sh "kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml --server-side --force-conflicts"
                                 //sh "kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml"
                                 
-                                // 2. [ใหม่] สร้าง Ingress Rule เพื่อให้เข้าผ่านเว็บได้
                                 // เราใช้ cat <<EOF เพื่อเขียนไฟล์ YAML สดๆ ลงไปเลย
+                                errorDesc = " : Create ArgoCD ingress exception !"
                                 sh """
-                                cat <<EOF | kubectl apply -f -
-                                apiVersion: networking.k8s.io/v1
-                                kind: Ingress
-                                metadata:
-                                name: argocd-server-ingress
-                                namespace: argocd
-                                annotations:
-                                    kubernetes.io/ingress.class: nginx
-                                    # สำคัญ: ArgoCD รันเป็น HTTPS ภายใน เราต้องบอก NGINX ให้คุยแบบ HTTPS
-                                    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-                                    # รองรับการส่งผ่านไฟล์ใหญ่ๆ (เผื่อ deploy manifest ใหญ่)
-                                    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-                                spec:
-                                rules:
-                                # ตั้งชื่อโดเมนย่อยสำหรับ ArgoCD (เช่น argocd.poc.quiinsfelicity.shop)
-                                # สังเกตการใช้ตัวแปร \${INPUT_WILDCARD_DOMAIN} และตัด * ออก
-                                - host: argocd${params.INPUT_SUB_DOMAIN.replace('*.', '')}
-                                    http:
-                                    paths:
-                                    - path: /
-                                        pathType: Prefix
-                                        backend:
-                                        service:
-                                            name: argocd-server
-                                            port:
-                                            number: 443
-                                EOF
-                                """
+cat <<EOF | kubectl apply -f -
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server-ingress
+  namespace: argocd
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    # สำคัญ: ArgoCD รันเป็น HTTPS ภายใน เราต้องบอก NGINX ให้คุยแบบ HTTPS
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    # รองรับการส่งผ่านไฟล์ใหญ่ๆ (เผื่อ deploy manifest ใหญ่)
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+spec:
+  rules:
+  # ตั้งชื่อโดเมนย่อยสำหรับ ArgoCD (เช่น argocd.poc.quiinsfelicity.shop)
+  # ใช้ replace เพื่อตัด *. ออก (ถ้ามี)
+  - host: argocd.${params.INPUT_SUB_DOMAIN.replace('*.', '')}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: argocd-server
+            port:
+              number: 443
+        EOF
+"""
 
                                 echo "Waiting for ArgoCD..."
                                 sleep 10
