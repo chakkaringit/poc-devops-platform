@@ -20,6 +20,8 @@ pipeline {
         
         // ชื่อ ID ของ Credential ใน Jenkins
         AWS_CRED_ID = 'maas-aws-key-main'
+        EKS_COMPOSER_LINK = ""
+        CLOUDFRONT_COMPOSER_LINK = ""
     }
 
     stages {
@@ -82,80 +84,6 @@ pipeline {
             }
         }
     
-        stage('Generate Infra Link') {
-            steps {
-                script {                  
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-
-                        def stackArn = sh(
-                            script: "aws cloudformation describe-stacks --stack-name ${STACK_NAME} --query 'Stacks[0].StackId' --output text --region ${AWS_REGION}",
-                            returnStdout: true
-                        ).trim()
-                        
-                        def composerUrl = "https://${AWS_REGION}.console.aws.amazon.com/composer/canvas?region=${AWS_REGION}&stackId=${stackArn}&action=view"
-                        
-                        // 3. แปะ Link ลงหน้า Build
-                        currentBuild.description = (currentBuild.description ?: "") + 
-                            """<br>
-                            <h3>🏗️ Infrastructure Visualizer</h3>
-                            <a href='${composerUrl}' target='_blank' style='
-                                background-color: #FF9900;
-                                color: white;
-                                padding: 10px 20px;
-                                text-decoration: none;
-                                border-radius: 5px;
-                                font-weight: bold;'>
-                                Open in AWS Infrastructure Composer ↗️
-                            </a>
-                            <br><br>
-                            """
-                        
-                        echo "✅ Link created: ${composerUrl}"
-                    }
-                }
-            }
-        }
-
-        stage('Generate Infra Diagram') {
-            steps {
-                script {
-                    // 1. ระบุตำแหน่งไฟล์ CloudFormation (Template ที่คุณใช้ Deploy)
-                    // ถ้าไฟล์อยู่ใน Git ให้ใส่ path เช่น 'provisioning/eks-stack.yaml'
-                    // แต่ถ้าต้องการโหลดตัวที่ Deploy จริงจาก AWS ให้เปิด comment บรรทัด aws cloudformation get-template ด้านล่าง
-                    def templateFile = "${STACK_NAME}.yaml"
-                    def outputDir = "architecture-diagram"
-                    
-                    // (Optional) โหลด Template จริงจาก AWS มาก่อน เพื่อความแม่นยำ 100%
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh "aws cloudformation get-template --stack-name ${STACK_NAME} --query 'TemplateBody' --output text --region ${AWS_REGION} > ${templateFile}"
-                    }
-                    try {
-                        sh """
-                            npm install -g cfn-dia
-                            cfn-dia ${templateFile}
-                        """
-            
-                        sh "mv ${stackName}.png architecture.png"
-                    } catch (Exception e) {
-                        echo "⚠️ Error running cfn-diagram: ${e.message}"
-                        currentBuild.result = 'FAILURE'
-                        currentBuild.description = "Exception Stage Generate Infra Diagram: Failed to generate any diagram file"
-                        throw e
-                    }
-           
-                    if (fileExists("architecture.png")) {
-                        archiveArtifacts artifacts: 'architecture.png', fingerprint: true
-                        currentBuild.description = (currentBuild.description ?: "") + "<br><h3>🏗️ Infra Diagram</h3><img src='${env.BUILD_URL}artifact/architecture.png' width='800' />"
-                        echo "✅ Diagram Generated Successfully!"
-                    } 
-                    else {
-                        echo "❌ Failed to generate any diagram file."
-                        
-                    }
-                }
-            }
-        }
-
         // Stage 4: Install ArgoCD
         stage('Install ArgoCD') {
             when {
@@ -352,6 +280,48 @@ EOF
                 }
             }
         }
+
+        stage('Generate Infra Link') {
+            steps {
+                script {                  
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+
+                        def stacEKSkArn = sh(
+                            script: "aws cloudformation describe-stacks --stack-name ${STACK_NAME} --query 'Stacks[0].StackId' --output text --region ${AWS_REGION}",
+                            returnStdout: true
+                        ).trim()
+
+                        def stackArn = sh(
+                            script: "aws cloudformation describe-stacks --stack-name Edge-Security-${params.INPUT_CLUSTER_NAME} --query 'Stacks[0].StackId' --output text --region us-east-1",
+                            returnStdout: true
+                        ).trim()
+                        
+                        def composerEKSUrl = "https://${AWS_REGION}.console.aws.amazon.com/composer/canvas?region=${AWS_REGION}&stackId=${stacEKSkArn}&action=view"
+                        def composerUrl = "https://us-east-1.console.aws.amazon.com/composer/canvas?region=us-east-1&stackId=${stackArn}&action=view"
+                        
+                        // 3. แปะ Link ลงหน้า Build
+                        currentBuild.description = (currentBuild.description ?: "") + 
+                            """<br>
+                            <h3>🏗️ Infrastructure Visualizer</h3>
+                            <a href='${composerUrl}' target='_blank' style='
+                                background-color: #FF9900;
+                                color: white;
+                                padding: 10px 20px;
+                                text-decoration: none;
+                                border-radius: 5px;
+                                font-weight: bold;'>
+                                Open in AWS Infrastructure Composer ↗️
+                            </a>
+                            <br><br>
+                            """
+                        env.EKS_COMPOSER_LINK = composerEKSUrl
+                        echo "✅ Visualizer Infrastructure: ${composerEKSUrl}"
+                        env.CLOUDFRONT_COMPOSER_LINK = composerUrl
+                        echo "✅ Visualizer CloudFront + WAF: ${composerUrl}"
+                    }
+                }
+            }
+        }
         
         // Stage 7: Destroy
         stage('Destroy Infrastructure') {
@@ -396,6 +366,23 @@ EOF
                         
                         echo "✅ All Systems Destroyed Successfully."
                     }
+                }
+            }
+        }
+
+        stage('Finish') {
+            steps {
+                script {
+                    def eksComposerLink = env.EKS_COMPOSER_LINK
+                    def frontComposerLink = env.CLOUDFRONT_COMPOSER_LINK
+
+                    writeFile file: 'infra_outputs.properties', text: """
+                    EKS_COMPOSER_LINK=${eksComposerLink}
+                    CLOUDFRONT_COMPOSER_LINK=${frontComposerLink}
+                    """
+                    archiveArtifacts artifacts: 'infra_outputs.properties', fingerprint: true
+                    
+                    currentBuild.description = "Click Artifacts to see outputs"
                 }
             }
         }
