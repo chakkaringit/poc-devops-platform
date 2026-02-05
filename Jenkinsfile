@@ -1,6 +1,8 @@
 def GLOBAL_EKS_LINK = "N/A"
 def GLOBAL_CLOUDFRONT_LINK = "N/A"
 def GLOBAL_CLOUDFRONT_DOMAIN = "N/A"
+def GLOBAL_ERROR_MESSAGE = ""
+def GLOBAL_STATUS = ""
 
 pipeline {
     agent any
@@ -260,30 +262,32 @@ EOF
             when { expression { params.ACTION == 'Deploy' } }
             steps {
                 script {
-                   def customKubeConfig = "${WORKSPACE}/.kubeconfig-temp"
-                   
-                   withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                       
-                       // 1. ดึงค่า EFS ID จาก CloudFormation Output (ท่าไม้ตาย!)
-                       // คำสั่งนี้จะไปถาม AWS ว่า Stack นี้สร้าง EFS ID อะไรมา
-                       def efsId = sh(script: "aws cloudformation describe-stacks --stack-name ${STACK_NAME} --region ${AWS_REGION} --query 'Stacks[0].Outputs[?OutputKey==`EFSFileSystemId`].OutputValue' --output text", returnStdout: true).trim()
-                       
-                       echo "Found EFS FileSystem ID: ${efsId}"
-                       
-                       if (efsId == "" || efsId == "None") {
-                           error "Could not find EFS ID. Did you update CloudFormation to include EFS?"
-                       }
+                    try{
+                        def customKubeConfig = "${WORKSPACE}/.kubeconfig-temp"
+                    
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        
+                        // 1. ดึงค่า EFS ID จาก CloudFormation Output (ท่าไม้ตาย!)
+                        // คำสั่งนี้จะไปถาม AWS ว่า Stack นี้สร้าง EFS ID อะไรมา
+                        def efsId = sh(script: "aws cloudformation describe-stacks --stack-name ${STACK_NAME} --region ${AWS_REGION} --query 'Stacks[0].Outputs[?OutputKey==`EFSFileSystemId`].OutputValue' --output text", returnStdout: true).trim()
+                        
+                        echo "Found EFS FileSystem ID: ${efsId}"
+                        
+                        if (efsId == "" || efsId == "None") {
+                            error "Could not find EFS ID. Did you update CloudFormation to include EFS?"
+                        }
 
-                       // 2. Login EKS
-                       sh "aws eks update-kubeconfig --name ${params.INPUT_CLUSTER_NAME} --region ${AWS_REGION} --kubeconfig ${customKubeConfig}"
-                       
-                       withEnv(["KUBECONFIG=${customKubeConfig}"]) {
-                           echo "Installing EFS CSI Driver..."
-                           sh "kubectl apply -k 'github.com/kubernetes-sigs/aws-efs-csi-driver/deploy/kubernetes/overlays/stable/?ref=master'"
-                           
-                           // 3. สร้าง StorageClass (Inject ID เข้าไปสดๆ)
-                           echo "Creating StorageClass with ID: ${efsId}..."
-                           sh """
+                        // 2. Login EKS
+                        sh "aws eks update-kubeconfig --name ${params.INPUT_CLUSTER_NAME} --region ${AWS_REGION} --kubeconfig ${customKubeConfig}"
+                        
+
+                        withEnv(["KUBECONFIG=${customKubeConfig}"]) {
+                            echo "Installing EFS CSI Driver..."
+                            sh "kubectl apply -k 'github.com/kubernetes-sigs/aws-efs-csi-driver/deploy/kubernetes/overlays/stable/?ref=master'"
+                            
+                            // 3. สร้าง StorageClass (Inject ID เข้าไปสดๆ)
+                            echo "Creating StorageClass with ID: ${efsId}..."
+                            sh """
 cat <<EOF | kubectl apply -f -
 kind: StorageClass
 apiVersion: storage.k8s.io/v1
@@ -298,8 +302,13 @@ parameters:
   gid: "1000"
   EOF
 """
-                       }
-                   }
+                            }
+                        }
+                    }catch(Exception e){
+                        GLOBAL_ERROR_MESSAGE = "Error in CloudFront Deploy Stage: ${e.message}"
+                        GLOBAL_STATUS = "FAILED"
+                        error e.message
+                    }
                 }
             }
         }
@@ -435,18 +444,21 @@ parameters:
         failure {
             script {
                 echo "Pipeline Failed. Please check the logs."
-                def errorMsg = currentBuild.rawBuild.getLog(20).join('\n')
+                def finalError = GLOBAL_ERROR_MESSAGE
+                def buildUrl = currentBuild.absoluteUrl
+                
                 def outputs = [
                     "STATUS": "FAILED",
-                    "ERROR_MESSAGE": "Sub-pipeline failed. Please check logs.\nLast Logs:\n${errorMsg}",
+                    "ERROR_MESSAGE": "${finalError}\nSee Logs: ${buildUrl}",
                     "EKS_COMPOSER_LINK": "N/A",
                     "CLOUDFRONT_COMPOSER_LINK": "N/A",
                     "CLOUDFRONT_DOMAIN": "N/A"
                 ]
-                    
+                
+                // เขียน JSON ส่งกลับไปให้แม่
                 writeJSON file: 'outputs.json', json: outputs
                 def jsonString = readFile('outputs.json').trim()
-                    
+                
                 currentBuild.description = (currentBuild.description ?: "") + "###DATA###" + jsonString
             }
         }
