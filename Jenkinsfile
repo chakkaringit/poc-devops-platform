@@ -100,7 +100,7 @@ pipeline {
                             npm install @mhlabs/cfn-diagram
                             
                             # 1. ลองสร้าง HTML
-                            ./node_modules/.bin/cfn-diagram html -t ${templateFile} -o ${outputDir}"
+                            ./node_modules/.bin/cfn-diagram html -t ${templateFile} -o ${outputDir}
                             
                         """
                     } catch (Exception e) {
@@ -163,7 +163,7 @@ spec:
   rules:
   # ตั้งชื่อโดเมนย่อยสำหรับ ArgoCD (เช่น argocd.poc.quiinsfelicity.shop)
   # ใช้ replace เพื่อตัด *. ออก (ถ้ามี)
-  - host: argocd.${params.INPUT_SUB_DOMAIN.replace('*.', '')}
+  - host: argocd${params.INPUT_SUB_DOMAIN.replace('*.', '')}
     http:
       paths:
       - path: /
