@@ -296,7 +296,7 @@ parameters:
   directoryPerms: "777"
   uid: "1000"
   gid: "1000"
-EOF
+  EOF
 """
                        }
                    }
@@ -434,6 +434,19 @@ EOF
     post {
         failure {
             echo "Pipeline Failed. Please check the logs."
+            def errorMsg = currentBuild.rawBuild.getLog(20).join('\n')
+            def outputs = [
+                "STATUS": "FAILED",
+                "ERROR_MESSAGE": "Sub-pipeline failed. Please check logs.\nLast Logs:\n${errorMsg}",
+                "EKS_COMPOSER_LINK": "N/A",
+                "CLOUDFRONT_COMPOSER_LINK": "N/A",
+                "CLOUDFRONT_DOMAIN": "N/A"
+            ]
+                
+            writeJSON file: 'outputs.json', json: outputs
+            def jsonString = readFile('outputs.json').trim()
+                
+            currentBuild.description = (currentBuild.description ?: "") + "###DATA###" + jsonString
         }
     }
 } // End of pipeline
