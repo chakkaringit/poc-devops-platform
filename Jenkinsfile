@@ -94,15 +94,24 @@ pipeline {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh "aws cloudformation get-template --stack-name ${STACK_NAME} --query 'TemplateBody' --output text --region ${AWS_REGION} > ${templateFile}"
                     }
+                    echo "--- File Check: ${templateFile} ---"
+                    sh "ls -lh ${templateFile}"
+                    sh "head -n 20 ${templateFile}"
 
                     // 2. Install & Generate
                     if (fileExists(templateFile)) {
                         echo "🎨 Generating Diagram from ${templateFile}..."
+                    
                         sh """
                             npm install @mhlabs/cfn-diagram
-                            ./node_modules/.bin/cfn-diagram html -t ${templateFile} -o architecture.html
+                            
+                            ./node_modules/.bin/cfn-diagram html -t ${templateFile} -o ${outputHtml} || echo "HTML Gen Failed"
+                            
+                            ./node_modules/.bin/cfn-diagram draw.io -t ${templateFile} -o ${outputDrawio} || echo "DrawIO Gen Failed"
+                            
+                            ls -lh *.html *.drawio || echo "No output files found"
                         """
-                
+
                         archiveArtifacts artifacts: '*.html, *.png', fingerprint: true, allowEmptyArchive: true           
                         currentBuild.description = (currentBuild.description ?: "") + "<br><h3>🏗️ Infrastructure Diagram</h3><a href='artifact/architecture.html'>View Diagram</a>"
                                               
