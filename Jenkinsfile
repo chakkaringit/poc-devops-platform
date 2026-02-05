@@ -198,60 +198,67 @@ EOF
             }
             steps {
                 script {
-                    echo "Deploying CloudFront & WAF..."
-                    def customKubeConfig = "${WORKSPACE}/.kubeconfig-temp"
-                    
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    try{
+                        echo "Deploying CloudFront & WAF..."
+                        def customKubeConfig = "${WORKSPACE}/.kubeconfig-temp"
                         
-                        // 1. ดึงชื่อ NLB URL
-                        sh "aws eks update-kubeconfig --name ${params.INPUT_CLUSTER_NAME} --region ${AWS_REGION} --kubeconfig ${customKubeConfig}"
-                        
-                        def nlbUrl = ""
-                        withEnv(["KUBECONFIG=${customKubeConfig}"]) {
-                            nlbUrl = sh(script: "kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'", returnStdout: true).trim()
-                        }
-                        
-                        if (nlbUrl == "") {
-                            error "Could not find NLB Hostname!"
-                        }
-                        echo "Found NLB URL: ${nlbUrl}"
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            
+                            // 1. ดึงชื่อ NLB URL
+                            sh "aws eks update-kubeconfig --name ${params.INPUT_CLUSTER_NAME} --region ${AWS_REGION} --kubeconfig ${customKubeConfig}"
+                            
+                            def nlbUrl = ""
+                            withEnv(["KUBECONFIG=${customKubeConfig}"]) {
+                                nlbUrl = sh(script: "kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'", returnStdout: true).trim()
+                            }
+                            
+                            if (nlbUrl == "") {
+                                error "Could not find NLB Hostname!"
+                            }
+                            echo "Found NLB URL: ${nlbUrl}"
 
-                        // 2. Deploy CloudFront Stack ไปที่ us-east-1
-                        // ⚠️ เช็ค Path ไฟล์นี้ใน Git ให้ชัวร์นะครับ
-                        echo "Deploying Stack to us-east-1..."
-                        sh """
-                            aws cloudformation deploy \
-                            --template-file ${SECURITY_TEMPLATE_FILE} \
-                            --stack-name Edge-Security-${params.INPUT_CLUSTER_NAME} \
-                            --region us-east-1 \
-                            --capabilities CAPABILITY_NAMED_IAM \
-                            --parameter-overrides \
-                                NlbDomainName=${nlbUrl} \
-                                WildcardDomain=${params.INPUT_WILDCARD_DOMAIN} \
-                                AcmCertificateArn=${params.INPUT_CERT_ARN}
-                        """
-                        
-                        echo "CloudFront Deployment Started! (Check CloudFormation Console in us-east-1)"
-                        echo "Fetching CloudFront Distribution Domain..."
-                
-                        // ระวัง: ตรง OutputKey=='CloudFrontDomainName' ต้องตรงกับชื่อในไฟล์ YAML ของคุณ
-                        def cfDomain = sh(
-                            script: """
-                                aws cloudformation describe-stacks \
+                            // 2. Deploy CloudFront Stack ไปที่ us-east-1
+                            // ⚠️ เช็ค Path ไฟล์นี้ใน Git ให้ชัวร์นะครับ
+                            echo "Deploying Stack to us-east-1..."
+                            sh """
+                                aws cloudformation deploy \
+                                --template-file ${SECURITY_TEMPLATE_FILE} \
                                 --stack-name Edge-Security-${params.INPUT_CLUSTER_NAME} \
                                 --region us-east-1 \
-                                --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDomainName'].OutputValue" \
-                                --output text
-                            """,
-                            returnStdout: true
-                        ).trim()
-
-                        GLOBAL_CLOUDFRONT_DOMAIN = cfDomain
-
-                        echo "=========================================="
-                        echo "🌍 CloudFront Domain: ${cfDomain}"
-                        echo "=========================================="
+                                --capabilities CAPABILITY_NAMED_IAM \
+                                --parameter-overrides \
+                                    NlbDomainName=${nlbUrl} \
+                                    WildcardDomain=${params.INPUT_WILDCARD_DOMAIN} \
+                                    AcmCertificateArn=${params.INPUT_CERT_ARN}
+                            """
+                            
+                            echo "CloudFront Deployment Started! (Check CloudFormation Console in us-east-1)"
+                            echo "Fetching CloudFront Distribution Domain..."
                     
+                            // ระวัง: ตรง OutputKey=='CloudFrontDomainName' ต้องตรงกับชื่อในไฟล์ YAML ของคุณ
+                            def cfDomain = sh(
+                                script: """
+                                    aws cloudformation describe-stacks \
+                                    --stack-name Edge-Security-${params.INPUT_CLUSTER_NAME} \
+                                    --region us-east-1 \
+                                    --query "Stacks[0].Outputs[?OutputKey=='CloudFrontDomainName'].OutputValue" \
+                                    --output text
+                                """,
+                                returnStdout: true
+                            ).trim()
+
+                            GLOBAL_CLOUDFRONT_DOMAIN = cfDomain
+
+                            echo "=========================================="
+                            echo "🌍 CloudFront Domain: ${cfDomain}"
+                            echo "=========================================="
+                        
+                        }
+                    }catch(Exception e){
+                        echo "Error Deploy CloudFront + WAF Stage ${e.message}"
+                        GLOBAL_ERROR_MESSAGE = "Error Deploy CloudFront + WAF Stage: ${e.message}"
+                        GLOBAL_STATUS = "FAILED"
+                        error e.message
                     }
                 }
             }
