@@ -88,12 +88,11 @@ pipeline {
                     // 1. ระบุตำแหน่งไฟล์ CloudFormation (Template ที่คุณใช้ Deploy)
                     // ถ้าไฟล์อยู่ใน Git ให้ใส่ path เช่น 'provisioning/eks-stack.yaml'
                     // แต่ถ้าต้องการโหลดตัวที่ Deploy จริงจาก AWS ให้เปิด comment บรรทัด aws cloudformation get-template ด้านล่าง
-                    def stackName = "EKS-${params.CUSTOMER_ID}-${params.ENVIRONMENT}-cluster"
-                    def templateFile = "${stackName}-Stack.yaml"
+                    def templateFile = "${STACK_NAME}-Stack.yaml"
                     
                     // (Optional) โหลด Template จริงจาก AWS มาก่อน เพื่อความแม่นยำ 100%
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: AWS_CRED_ID, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh "aws cloudformation get-template --stack-name ${stackName} --query 'TemplateBody' --output text --region ${AWS_REGION} > ${templateFile}"
+                        sh "aws cloudformation get-template --stack-name ${STACK_NAME} --query 'TemplateBody' --output text --region ${AWS_REGION} > ${templateFile}"
                     }
 
                     // 2. Install & Generate
