@@ -98,27 +98,14 @@ pipeline {
                     // 2. Install & Generate
                     if (fileExists(templateFile)) {
                         echo "🎨 Generating Diagram from ${templateFile}..."
-                        
                         sh """
-                            # สร้าง Virtual Env เพื่อความปลอดภัย (ไม่กระทบเครื่อง Agent)
-                            python3 -m venv diagram_venv
-                            . diagram_venv/bin/activate
-                            
-                            # Install Packages
-                            pip install --upgrade pip
-                            pip install cfn-diagram
-                            
-                            # Generate Diagram
-                            # -t = template file, -o = output image
-                            cfn-diagram -t ${templateFile} -o architecture.png
+                            npm install @mhlabs/cfn-diagram
+                            ./node_modules/.bin/cfn-diagram -t ${templateFile} -o architecture.html
                         """
-                        
-                        // 3. เก็บไฟล์และโชว์หน้าเว็บ
-                        archiveArtifacts artifacts: 'architecture.png', fingerprint: true
-                        
-                        // ✨ ท่าไม้ตาย: เอารูปมาแปะหน้า Build Description เลย (ต้องเปิด Safe HTML ใน Jenkins)
-                        currentBuild.description = (currentBuild.description ?: "") + "<br><h3>🏗️ Infrastructure Diagram</h3><img src='artifact/architecture.png' width='600' />"
-                        
+                
+                        archiveArtifacts artifacts: '*.html, *.png', fingerprint: true, allowEmptyArchive: true           
+                        currentBuild.description = (currentBuild.description ?: "") + "<br><h3>🏗️ Infrastructure Diagram</h3><a href='artifact/architecture.html'>View Diagram</a>"
+                                              
                     } else {
                         echo "⚠️ CloudFormation Template not found: ${templateFile}"
                     }
