@@ -299,6 +299,73 @@ Resources:
       SecurityGroups:
         - !Ref EFSSecurityGroup
 
+  # ============================================================
+  # 9. S3 BUCKETS (Input & Processed) + Bucket Policy
+  # ============================================================
+  
+  # --- Input Bucket ---
+  InputS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ClusterName}-input-data"
+
+  InputS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref InputS3Bucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS: "arn:aws:iam::288761762907:role/SduInfraStack-CustomS3AutoDeleteObjectsCustomResour-XsEQ2ZMEFHQq"
+            Action:
+              - "s3:DeleteObject*"
+              - "s3:GetBucket*"
+              - "s3:List*"
+              - "s3:PutBucketPolicy"
+            Resource:
+              - !GetAtt InputS3Bucket.Arn
+              - !Sub "${InputS3Bucket.Arn}/*"
+
+  # --- Processed Bucket ---
+  ProcessedS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ClusterName}-processed-data"
+
+  ProcessedS3BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ProcessedS3Bucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              AWS: "arn:aws:iam::288761762907:role/SduInfraStack-CustomS3AutoDeleteObjectsCustomResour-XsEQ2ZMEFHQq"
+            Action:
+              - "s3:DeleteObject*"
+              - "s3:GetBucket*"
+              - "s3:List*"
+              - "s3:PutBucketPolicy"
+            Resource:
+              - !GetAtt ProcessedS3Bucket.Arn
+              - !Sub "${ProcessedS3Bucket.Arn}/*"
 Outputs:
   ClusterName:
     Description: "The name of the EKS Cluster"
@@ -312,3 +379,9 @@ Outputs:
   EFSFileSystemId:
     Description: "ID of the EFS File System (Use this in StorageClass)"
     Value: !Ref EFSFileSystem
+  InputS3BucketName:
+    Description: "Name of the Input S3 Bucket"
+    Value: !Ref InputS3Bucket
+  ProcessedS3BucketName:
+    Description: "Name of the Processed S3 Bucket"
+    Value: !Ref ProcessedS3Bucket
