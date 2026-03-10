@@ -19,7 +19,7 @@ pipeline {
 
     environment {
         //AWS_REGION = 'ap-southeast-1'
-        AWS_REGION = ${params.INPUT_AWS_REGION}
+        AWS_REGION = "${params.INPUT_AWS_REGION}"
         
         // ⚠️ เช็คว่าไฟล์นี้อยู่ใน Folder provisioning ใน Git จริงหรือไม่
         TEMPLATE_FILE = 'provisioning/eks-full-stack.yaml' 
