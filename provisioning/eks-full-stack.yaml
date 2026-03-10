@@ -276,6 +276,7 @@ Resources:
     Type: AWS::EFS::FileSystem
     Properties:
       Encrypted: true
+      KmsKeyId: alias/aws/elasticfilesystem
       PerformanceMode: generalPurpose
       ThroughputMode: bursting
       FileSystemTags:
