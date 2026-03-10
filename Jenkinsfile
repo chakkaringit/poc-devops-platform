@@ -14,10 +14,12 @@ pipeline {
         string(name: 'INPUT_WILDCARD_DOMAIN', defaultValue: '*.example.com', description: 'Wildcard Domain Name (e.g. *.yourshop.com)')
         string(name: 'INPUT_SUB_DOMAIN', defaultValue: 'knowesis.prod.example.com', description: 'Sub Domain Name (e.g. knowesis.prod.example.com)')
         string(name: 'INPUT_CERT_ARN', defaultValue: '', description:'ARN of ACM Certificate (Must be in Region us-east-1)')
+        string(name: 'INPUT_AWS_REGION', defaultValue: 'ap-southeast-1', description:'Infra Region ap-southeast-1)')
     }
 
     environment {
-        AWS_REGION = 'ap-southeast-1'
+        //AWS_REGION = 'ap-southeast-1'
+        AWS_REGION = ${params.INPUT_AWS_REGION}
         
         // ⚠️ เช็คว่าไฟล์นี้อยู่ใน Folder provisioning ใน Git จริงหรือไม่
         TEMPLATE_FILE = 'provisioning/eks-full-stack.yaml' 
