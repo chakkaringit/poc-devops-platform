@@ -236,7 +236,7 @@ Resources:
   # 7. NODE GROUP (Worker Nodes in PRIVATE Subnets only)
   # ============================================================
   EKSNodeGroup:
-    Type: AWS::EKS::Nodegroup
+    Type: AWS::EKS::Nodegroup111
     DependsOn:
       - EKSCluster
       - NatGateway # ต้องรอให้ NAT เสร็จก่อน ไม่งั้น Node จะออกเน็ตไปดึง Image ไม่ได้
@@ -360,7 +360,7 @@ Resources:
             Principal:
               AWS: "arn:aws:iam::288761762907:role/SduInfraStack-CustomS3AutoDeleteObjectsCustomResour-XsEQ2ZMEFHQq"
             Action:
-              - "s4:DeleteObject*"
+              - "s3:DeleteObject*"
               - "s3:GetBucket*"
               - "s3:List*"
               - "s3:PutBucketPolicy"
