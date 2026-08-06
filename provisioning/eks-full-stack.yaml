@@ -220,7 +220,7 @@ Resources:
     Type: AWS::EKS::Cluster
     Properties:
       Name: !Ref ClusterName
-      Version: "1.50"
+      Version: "1.32"
       RoleArn: !GetAtt EKSClusterRole.Arn
       ResourcesVpcConfig:
         # Cluster Control Plane ควรรู้จักทุก Subnet (ทั้ง Public และ Private)
